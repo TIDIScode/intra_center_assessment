@@ -1,4 +1,4 @@
-function [total_feature] = my_N3_feature_overall(EEG1)
+function [total_feature] = myN3_feature_overall(EEG1)
 
 Hz = 200;
 
