@@ -1,0 +1,847 @@
+clear
+clc
+sec=30; 
+current_position = cd;
+filename = 'Normal_ShuangHo_20190603.xlsx';
+xlRange = 'A:A';
+sheet = 1; 
+[num,txt]  = xlsread(filename,sheet,xlRange)
+ID = txt(2:end)
+
+
+xlRange = 'E:E';
+sheet = 1;
+[num2,txt2]  = xlsread(filename,sheet,xlRange)
+
+AGE = num2(1:end);
+
+clear txt txt2
+
+
+number_subject = length(ID);
+
+fname=mfilename('fullpath');
+[pathstr,~,~]=fileparts(fname);
+addpath([pathstr,'/EDF_read_code']) ;
+
+name = [current_position,'/database_zip'];
+cd(name);
+
+databaseInfo = dir;
+iszip = {databaseInfo.isdir};
+zipname = {databaseInfo.name};
+clear databaseInfo
+
+iszip = cell2mat(iszip);
+zipname = zipname(find(iszip==0));
+
+if (length(zipname)~=number_subject)
+     warning(['length(zipname) = ',num2str(length(zipname)),' ~ = number_subject = ',num2str(number_subject)]);
+end
+
+cd(current_position);
+
+%% 
+
+
+Channels = cell(number_subject,2);
+EMG_Channels = cell(number_subject,2);
+EOG_Channels = cell(number_subject,2);
+label = cell(number_subject, 1);
+coarselabel = cell(number_subject, 1);
+
+gap = zeros(number_subject,1);
+for i = 1:number_subject 
+    name_unzip = [current_position,'/database_unzip'];
+    cd(name_unzip);
+    name = [current_position,'/database_unzip/',zipname(i)]
+    NAME = char(zipname(i));
+    NAME = NAME(1:end-4);
+    exist_check = exist(NAME);
+    cd(current_position)
+    if (exist_check~=7)
+       warning(['this file does not exist!']); 
+    else
+       name = [current_position,'/database_unzip/',NAME]; 
+       addpath(name);
+
+       [hdr,record] = edfread('Traces.edf');
+       
+       hdr.label
+       channel_name = hdr.label;
+       channel_samplingrate = hdr.frequency;
+       clear channel1_index channel2_index channel3_index channel4_index channel5_index
+       for channel_index = 1:length(channel_name)
+           if (strcmp(channel_name{channel_index},'C3M2')==1) || (strcmp(channel_name{channel_index},'C3A2')==1)  
+               channel1_index = channel_index;
+           end
+           if (strcmp(channel_name{channel_index},'O2M1')==1) || (strcmp(channel_name{channel_index},'O2A1')==1) || (strcmp(channel_name{channel_index},'O22A1')==1)
+               channel2_index = channel_index; 
+           end
+           
+           % EOG
+           if (strcmp(channel_name{channel_index},'E1')==1) || (strcmp(channel_name{channel_index},'LOCA2')==1) || (strcmp(channel_name{channel_index},'E1M2')==1) || (strcmp(channel_name{channel_index},'LOC')==1) || (strcmp(channel_name{channel_index},'LeftA2')==1)
+               channel3_index = channel_index;
+           end
+           if (strcmp(channel_name{channel_index},'E2')==1) || (strcmp(channel_name{channel_index},'ROCA1')==1) || (strcmp(channel_name{channel_index},'E2M2')==1) || (strcmp(channel_name{channel_index},'ROC')==1) || (strcmp(channel_name{channel_index},'RightA1')==1)
+               channel4_index = channel_index; 
+           end
+           
+           % EMG
+           if (strcmp(channel_name{channel_index},'LowerLeftUpper')==1) || (strcmp(channel_name{channel_index},'Chin')==1) || (strcmp(channel_name{channel_index},'EMG')==1) || ...
+                   (strcmp(channel_name{channel_index},'chin1chin2')==1) || (strcmp(channel_name{channel_index},'EMG_R')==1)
+               channel5_index = channel_index; 
+           end
+       end
+       channel1_samplingrate = channel_samplingrate(channel1_index)
+       channel2_samplingrate = channel_samplingrate(channel2_index);
+       
+       channel3_samplingrate = channel_samplingrate(channel3_index);
+       channel4_samplingrate = channel_samplingrate(channel4_index);
+       
+       channel5_samplingrate = channel_samplingrate(channel5_index);
+       
+       if (channel1_samplingrate~=200)
+       input1 = resample(record(channel1_index,:),200,channel1_samplingrate); 
+       warning(['Sampling rate has been changed to 200 Hz!']);
+       else    
+       input1 = record(channel1_index,:); % C3M2
+       end
+       
+       if (channel2_samplingrate~=200)
+       input2 = resample(record(channel2_index,:),200,channel2_samplingrate);
+       warning(['Sampling rate has been changed to 200 Hz!']);
+       else    
+       input2 = record(channel2_index,:); % F4M1
+       end
+       
+       if (channel3_samplingrate~=200)
+       input3 = resample(record(channel3_index,:),200,channel3_samplingrate); 
+       warning(['Sampling rate has been changed to 200 Hz!']);
+       else    
+       input3 = record(channel3_index,:); % C3M2
+       end
+       
+       if (channel4_samplingrate~=200)
+       input4 = resample(record(channel4_index,:),200,channel4_samplingrate); 
+       warning(['Sampling rate has been changed to 200 Hz!']);
+       else    
+       input4 = record(channel4_index,:); % F4M1
+       end
+       
+       if (channel5_samplingrate~=200)
+       input5 = resample(record(channel5_index,:),200,channel5_samplingrate); 
+       
+       warning(['Sampling rate has been changed to 200 Hz!']);
+       else    
+       input5 = record(channel5_index,:); % C3M2
+       
+       end
+       
+       SampFreq = 200;
+       SampFreq_EEG = SampFreq;
+        SampFreq_EOG = SampFreq;
+       
+
+       
+       
+       [a1,a2,a3,a4,a5,a6,a7,a8,a9] = textread('Events.txt','%s%s%s%s%s%s%s%s%s','headerlines',27);
+       %[a1,a2,a3,a4,a5,a6,a7,a8,a9] = textread(new_Events,'%s%s%s%s%s%s%s%s%s','headerlines',0);
+       rmpath(name);
+       if (strcmp(a3{1},'Position'))==1
+       [label{i}] = get_STAGE(a1(2:end),a2(2:end),a3(2:end),a4(2:end),a5(2:end),a6(2:end),a7(2:end),a8(2:end),a9(2:end));
+       elseif (strcmp(a3{1},'Time'))==1
+       [label{i}] = get_STAGE(a1(2:end),a2(2:end),[],a3(2:end),a4(2:end),a5(2:end),a6(2:end),a7(2:end),a8(2:end));
+       else
+       error('error')    
+       end
+    end
+    label_epoch = length(label{i})
+   num_STAGE = label{i};
+
+  
+  num_STAGE = num_STAGE(:);
+ 
+ signal1_number_epoch = floor(length(input1)/(SampFreq*30))
+ signal2_number_epoch = floor(length(input2)/(SampFreq*30))
+ signal3_number_epoch = floor(length(input3)/(SampFreq*30))
+ signal4_number_epoch = floor(length(input4)/(SampFreq*30))
+ signal5_number_epoch = floor(length(input5)/(SampFreq*30))
+ GT_number_epoch = length(num_STAGE)
+ gap(i) = min([signal1_number_epoch,signal2_number_epoch,signal3_number_epoch, signal4_number_epoch, signal5_number_epoch ]) - GT_number_epoch; 
+
+ revised_number_epoch = min([signal1_number_epoch,signal2_number_epoch,signal3_number_epoch, signal4_number_epoch, signal5_number_epoch, GT_number_epoch]);
+ 
+ input1 = input1(1:(revised_number_epoch*SampFreq*30));
+ input2 = input2(1:(revised_number_epoch*SampFreq*30));
+ input3 = input3(1:(revised_number_epoch*SampFreq*30));
+ input4 = input4(1:(revised_number_epoch*SampFreq*30));
+ input5 = input5(1:(revised_number_epoch*SampFreq*30));
+ num_STAGE = num_STAGE(1:revised_number_epoch);
+   
+      if (length(input1)/SampFreq/sec~=length(num_STAGE)) || (length(input2)/SampFreq/sec~=length(num_STAGE))
+      error('the lengths of the two-channel EEG data are not consistent! ');
+      end
+      if (length(input3)/SampFreq/sec~=length(num_STAGE)) || (length(input4)/SampFreq/sec~=length(num_STAGE))
+      display('the lengths of the two-channel EOG data are not consistent! ');
+      end
+      
+      Channels{i, 1} = (input1); % C3M2
+      Channels{i, 2} = (input2); % F4M1
+      
+      EOG_Channels{i, 1} = (input3); % C3M2
+      EOG_Channels{i, 2} = (input4); % F4M1
+      
+      EMG_Channels{i, 1} = (input5);
+      EMG_Channels{i, 2} = (input5);
+      label{i} = num_STAGE;
+      
+ 
+    label_epoch = length(label{i});  
+   
+   
+    
+    
+    signal_epoch = floor(length(Channels{i,1})/SampFreq/sec);
+    
+    if (label_epoch<signal_epoch)
+    Channels{i, 1} = Channels{i, 1}(1:label_epoch*sec*SampFreq); 
+    Channels{i, 2} = Channels{i, 2}(1:label_epoch*sec*SampFreq);
+    EMG_Channels{i,1} = EMG_Channels{i,1}(1:label_epoch*sec*SampFreq);
+    EMG_Channels{i,2} = EMG_Channels{i,2}(1:label_epoch*sec*SampFreq);
+    EOG_Channels{i, 1} = EOG_Channels{i, 1}(1:label_epoch*sec*SampFreq); 
+    EOG_Channels{i, 2} = EOG_Channels{i, 2}(1:label_epoch*sec*SampFreq);
+    elseif (label_epoch>=signal_epoch)
+    Channels{i, 1} = Channels{i, 1}(1:signal_epoch*sec*SampFreq); 
+    Channels{i, 2} = Channels{i, 2}(1:signal_epoch*sec*SampFreq);  
+    EMG_Channels{i,1} = EMG_Channels{i,1}(1:signal_epoch*sec*SampFreq); 
+    EMG_Channels{i,2} = EMG_Channels{i,2}(1:signal_epoch*sec*SampFreq);
+    EOG_Channels{i, 1} = EOG_Channels{i, 1}(1:signal_epoch*sec*SampFreq); 
+    EOG_Channels{i, 2} = EOG_Channels{i, 2}(1:signal_epoch*sec*SampFreq);
+    label{i} = label{i}(1:signal_epoch);
+    end
+end
+
+
+if 1 
+w0 = 60*(2/SampFreq);
+[b,a] = iirnotch(w0,w0/35); %w0/35
+
+for i = 1:size(Channels, 1)
+
+Channels{i, 1} = filtfilt(b, a, Channels{i, 1});
+Channels{i, 2} = filtfilt(b, a, Channels{i, 2});     
+
+EOG_Channels{i, 1} = filtfilt(b, a, EOG_Channels{i, 1});
+EOG_Channels{i, 2} = filtfilt(b, a, EOG_Channels{i, 2}); 
+EMG_Channels{i, 1} = filtfilt(b, a, EMG_Channels{i, 1});
+EMG_Channels{i, 2} = filtfilt(b, a, EMG_Channels{i, 2});
+end 
+ 
+end
+
+
+d = designfilt('bandpassiir','FilterOrder',20, ...
+    'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',20, ...
+    'SampleRate',SampFreq);
+
+
+for i = 1:size(EOG_Channels, 1)
+   EOG_Channels{i, 1} = filter(d, EOG_Channels{i, 1});
+   EOG_Channels{i, 2} = filter(d, EOG_Channels{i, 2}); 
+end
+ 
+ 
+%%
+Info.PID = [1:number_subject]'; 
+
+      
+len = sec*3;  % 5
+Fs = SampFreq;
+for i = 1:size(Channels, 1)
+    
+   %old_Channels{i, 1} = mybuffer_past(old_Channels{i, 1},SampFreq); % FPZCZ
+   %old_Channels{i, 2} = mybuffer_past(old_Channels{i, 2},SampFreq); % PZOZ 
+    
+   Channels{i, 1} = mybuffer_past(Channels{i, 1},SampFreq_EEG); % FPZCZ
+   Channels{i, 2} = mybuffer_past(Channels{i, 2},SampFreq_EEG); % PZOZ
+   
+   EMG_Channels{i,1} = mybuffer_past(EMG_Channels{i,1},SampFreq);  % EMG
+   EMG_Channels{i,2} = mybuffer_past(EMG_Channels{i,2},SampFreq);  % EMG
+   
+   EOG_Channels{i, 1} = mybuffer_past(EOG_Channels{i, 1},SampFreq_EOG); % FPZCZ
+   EOG_Channels{i, 2} = mybuffer_past(EOG_Channels{i, 2},SampFreq_EOG); % PZOZ
+   
+   % remove zeros
+   label{i} = label{i}(3:end);  % (4:end-1)
+   coarselabel{i} = get_coarselabel(label{i});
+
+   % anomaly detection
+   xx = Channels{i, 1};
+   old = size(xx)
+   [anomaly_index1] = anomaly_detection(xx);
+   
+   if (length(anomaly_index1)~=size(xx,2))
+       error('error')
+   end
+   
+   xx = Channels{i, 2};
+   [anomaly_index2] = anomaly_detection(xx);
+   
+   if (length(anomaly_index2)~=size(xx,2))
+       error('error')
+   end
+   
+   anomaly_index = anomaly_index1.*anomaly_index2;
+   
+   if (length(anomaly_index)~=size(xx,2))
+       error('error')
+   end
+   
+   clear anomaly_index1 anomaly_index2
+   normal_part = find(anomaly_index==1);
+   qq = size(normal_part);
+   
+   
+   
+   label{i} = label{i}(normal_part);  % (4:end-1)
+   coarselabel{i} = coarselabel{i}(normal_part);
+   Channels{i, 1} = Channels{i, 1}(:, normal_part);
+   Channels{i, 2} = Channels{i, 2}(:, normal_part);
+   EOG_Channels{i, 1} = EOG_Channels{i, 1}(:, normal_part);
+   EOG_Channels{i, 2} = EOG_Channels{i, 2}(:, normal_part);
+   EMG_Channels{i, 1} = EMG_Channels{i, 1}(:, normal_part);
+   EMG_Channels{i, 2} = EMG_Channels{i, 2}(:, normal_part);
+%%
+   
+   
+   
+    if (length(Channels{i, 1}(:))/SampFreq/30/(len / 30)~=length(label{i}))
+        error('error');
+    end
+    if (length(Channels{i, 2}(:))/SampFreq/30/(len / 30)~=length(label{i}))
+        error('error');
+    end 
+    
+    if (length(Channels{i, 1}(:))/SampFreq/30/(len / 30)~=length(coarselabel{i}))
+        error('error');
+    end
+    if (length(Channels{i, 2}(:))/SampFreq/30/(len / 30)~=length(coarselabel{i}))
+        error('error');
+    end 
+    
+end        
+
+%%
+name = ['\scatnet-0.2-master\addpath_scatnet.m'];
+run(name)
+% default filter bank with averaging scale of 2048 samples.
+
+if 1
+    T = 30*SampFreq_EOG;%-7*Fs%floor(2^12*3.3645) %2^12; %13777%floor(2^12*3.3645);
+
+% First-order filter bank with 8 wavelets per octave.
+% Second-order filter bank with 1 wavelet per octave.
+filt_opt.Q = [2 2];
+
+% Calculate maximal wavelet scale so that largest wavelet will be of bandwidth T.
+filt_opt.J = T_to_J(T, filt_opt);
+
+% Only compute zeroth-, first- and second-order scattering.
+scat_opt.M = 2;
+
+% Prepare wavelet transforms to use in scattering.
+[Wop, ~] = wavelet_factory_1d(SampFreq_EOG * len, filt_opt, scat_opt);
+end
+
+
+for i = 1: size(Channels, 1)
+    
+    disp(num2str(i))
+    
+    
+    [EMG_Channels{i, 1}] = myEMG_energy(EMG_Channels{i, 1},Fs,10,'EMG'); 
+    [aa] = myEMG_energy(Channels{i, 1},Fs,10,'EEG');
+    [bb] = myEMG_energy(Channels{i, 2},Fs,10,'EEG');
+    EMG_Channels{i, 2} = [aa;bb];
+    
+    if 1
+    
+    [pp] = myEOG_feature_time_domain(EOG_Channels{i, 1},Fs);
+    [qq] = myEOG_feature_time_domain(EOG_Channels{i, 2},Fs);
+    
+    expert_frequency_points_layer1 = [0.2 0.4 0.6 0.8 1 2 4 8 10];
+    expert_frequency_points_layer2 = [999];
+    
+    EOG_Channels{i, 1} = bsxfun(@minus, EOG_Channels{i, 1}, median(EOG_Channels{i, 1}));
+    EOG_Channels{i, 1} = myscattering_transform(EOG_Channels{i, 1},Fs,expert_frequency_points_layer1,expert_frequency_points_layer2);
+    EOG_Channels{i, 2} = bsxfun(@minus, EOG_Channels{i, 2}, median(EOG_Channels{i, 2}));
+    EOG_Channels{i, 2} = myscattering_transform(EOG_Channels{i, 2},Fs,expert_frequency_points_layer1,expert_frequency_points_layer2);
+    
+    EOG_Channels{i, 1} = [EOG_Channels{i, 1};pp];
+    EOG_Channels{i, 2} = [EOG_Channels{i, 2};qq];
+    
+
+    end
+    
+
+
+    
+    for j = 1:size(Channels, 2)
+        Channels{i, j} = bsxfun(@minus, Channels{i, j}, median(Channels{i, j}));
+        Channels{i, j} = squeeze(format_scat(log_scat(renorm_scat(scat(reshape(Channels{i, j}, [size(Channels{i, j}, 1), 1, size(Channels{i, j}, 2)]), Wop)))));        
+    end
+
+end
+
+
+
+clear temp newtemp
+clear old_Channels
+
+
+
+%% organization and indexing
+
+t = cell(size(Channels, 1), 1);
+coarse_t = cell(size(Channels, 1), 1);
+
+subjectId = cell(size(Info.PID));
+for i = 1:size(Channels, 1)
+    id = find(label{i} > 0);
+    for j = 1:size(Channels, 2)
+    Channels{i, j} = Channels{i, j}(:,:,id); %Channels{i, j} = Channels{i, j}(id, :);
+    EOG_Channels{i, j} = EOG_Channels{i, j}(:,:,id);
+    EMG_Channels{i, j} = EMG_Channels{i, j}(:,:,id);
+    end
+    t{i} = full(ind2vec(double(label{i}(id)'),5))';
+    coarse_t{i} = full(ind2vec(double(coarselabel{i}(id)'),3))';
+    subjectId{i} = repelem(Info.PID(i), length(t{i}))';
+end
+clear label id
+
+
+
+
+%%
+[X,Y] = my_cell2mat(Channels);
+[X_EOG,Y_EOG] = my_cell2mat(EOG_Channels);
+[X_EMG,Y_EMG] = my_cell2mat(EMG_Channels);
+
+clear Channels EOG_Channels EMG_Channels
+[dx,dy,dz] = size(X);
+[dx_emg,dy_emg,dz_emg] = size(X_EMG);
+
+interior = 1:9;
+
+
+ X = X(:,interior,:);
+ Y = Y(:,interior,:);
+ 
+ X_EMG = X_EMG(:,interior,:);
+ Y_EMG = Y_EMG(:,interior,:);
+ 
+ dim_X_EMG = size(X_EMG,1)
+ dim_Y_EMG = size(Y_EMG,1)
+ 
+ X_EOG = X_EOG(:,interior,:);
+ Y_EOG = Y_EOG(:,interior,:); 
+ 
+ dim_X_EOG = size(X_EOG,1)
+ dim_Y_EOG = size(Y_EOG,1)
+
+if 0
+ scaled_X_EMG1 = X_EMG(1,:,:);
+
+ 
+ scaled_X_EMG2 = X_EMG(2,:,:);
+ 
+ 
+ scaled_X_EMG3 = X_EMG(3,:,:);
+ 
+%% 
+scaled_X_EMG1 = X_EMG(1,:,:)/median(abs(scaled_X_EMG1(:)-median(scaled_X_EMG1(:))));
+[b,idx,outliers] = deleteoutliers(scaled_X_EMG1(:),0.05);
+ scaled_X_EMG1(scaled_X_EMG1>max(b)) = max(b);
+
+
+scaled_X_EMG2 = X_EMG(2,:,:)/median(abs(scaled_X_EMG2(:)-median(scaled_X_EMG2(:))));
+[b,idx,outliers] = deleteoutliers(scaled_X_EMG2(:),0.05);
+ scaled_X_EMG2(scaled_X_EMG2>max(b)) = max(b);
+
+scaled_X_EMG3 = X_EMG(3,:,:)/median(abs(scaled_X_EMG3(:)-median(scaled_X_EMG3(:))));
+[b,idx,outliers] = deleteoutliers(scaled_X_EMG3(:),0.05);
+ scaled_X_EMG3(scaled_X_EMG3>max(b)) = max(b);
+%%
+
+scaled_X_EMG = cat(1,scaled_X_EMG1,scaled_X_EMG2);
+scaled_X_EMG = cat(1,scaled_X_EMG,scaled_X_EMG3);
+
+%%
+scaled_Y_EMG1 = Y_EMG(1,:,:);
+ 
+ 
+ scaled_Y_EMG2 = Y_EMG(2,:,:);
+
+ 
+ scaled_Y_EMG3 = Y_EMG(3,:,:);
+ 
+ 
+ %%
+scaled_Y_EMG1 = Y_EMG(1,:,:)/median(abs(scaled_Y_EMG1(:)-median(scaled_Y_EMG1(:))));
+[b,idx,outliers] = deleteoutliers(scaled_Y_EMG1(:),0.05);
+ scaled_Y_EMG1(scaled_Y_EMG1>max(b)) = max(b);
+
+
+scaled_Y_EMG2 = Y_EMG(2,:,:)/median(abs(scaled_Y_EMG2(:)-median(scaled_Y_EMG2(:))));
+ [b,idx,outliers] = deleteoutliers(scaled_Y_EMG2(:),0.05);
+ scaled_Y_EMG2(scaled_Y_EMG2>max(b)) = max(b);
+
+scaled_Y_EMG3 = Y_EMG(3,:,:)/median(abs(scaled_Y_EMG3(:)-median(scaled_Y_EMG3(:))));
+ [b,idx,outliers] = deleteoutliers(scaled_Y_EMG3(:),0.05);
+ scaled_Y_EMG3(scaled_Y_EMG3>max(b)) = max(b);
+
+
+scaled_Y_EMG = cat(1,scaled_Y_EMG1,scaled_Y_EMG2);
+scaled_Y_EMG = cat(1,scaled_Y_EMG,scaled_Y_EMG3);
+end
+
+% X = cat(1,X, scaled_X_EMG);
+% Y = cat(1,Y, scaled_Y_EMG);
+
+X = cat(1,X, X_EOG);
+X = cat(1,X, Y_EOG);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Y = cat(1,Y, X_EMG);
+Y = cat(1,Y, Y_EMG);
+
+clear  X_EOG Y_EOG X_EMG Y_EMG
+
+if 1
+for n = 1:size(X,1)
+    scaled_X = X(n,:,:);
+   
+   if (sum(isinf(scaled_X(:)))>0)
+       n
+       error('error1')
+   end
+   
+   if (min(scaled_X(:))>0)
+   
+    scaled_X = log(scaled_X);
+
+   if (sum(isinf(scaled_X(:)))>0)
+       n
+       error('error2')
+   end
+   X(n,:,:) = scaled_X;
+   else
+   X(n,:,:) = scaled_X;
+   end
+end
+
+for n = 1:size(Y,1)
+    scaled_Y = Y(n,:,:);
+    if (sum(isinf(scaled_Y(:)))>0)
+       n
+       error('error')
+   end
+    
+    if (min(scaled_Y(:))>0)
+    
+
+    scaled_Y = log(scaled_Y);
+
+       if (sum(isinf(scaled_Y(:)))>0)
+       error('error')
+       end
+    Y(n,:,:) = scaled_Y;
+    else
+    Y(n,:,:) = scaled_Y;
+    end
+        
+end
+
+end
+
+
+
+if 0
+   tempX = get_vec_feature(X);
+   tempY = get_vec_feature(Y);
+   [status, msg, msgID] = mkdir('scattering_GT_CGMH_Alice');
+   [total_subject] = SAVE_scattering_feature(tempX,tempY,t)
+   
+   [subject_age] = get_age(number_subject,zipname,ID,AGE);
+   name = [current_position,'/scattering_GT_CGMH_Alice']; 
+   cd(name);
+   name = ['AGE_list.mat'];
+   save(name,'subject_age')
+   cd(current_position)
+   clear tempX tempY
+end
+[subject_age] = get_age(number_subject,zipname,ID,AGE);
+
+y = cell2mat(t);
+coarse_y = cell2mat(coarse_t);
+
+[~, response] = max(y, [], 2);
+[~, coarse_response] = max(coarse_y, [], 2);
+clear y multi_y
+
+% create leave-one-out cross validation partition
+cvp = struct;
+
+cvp.testStore = cell(1, number_subject);
+cvp.trainStore = cell(1, number_subject);
+for i = 1:number_subject
+    cvp.testStore{i} = cell2mat(subjectId) == i;
+    %cvp.testSize(i) = sum(cvp.testStore{i});
+    %cvp.trainSize(i) = cvp.NumObservations - cvp.testSize(i);
+    cvp.trainStore{i} = ~cvp.testStore{i};
+end
+
+
+template = templateSVM('KernelFunction', 'gaussian', ...
+    'PolynomialOrder', [], 'KernelScale', 10, ...
+    'BoxConstraint', 1, 'Standardize', true);
+
+
+cm = cell(number_subject, 1);
+
+%%
+
+save('X.mat','X')
+save('Y.mat','Y')
+save('coarse_response.mat','coarse_response')
+save('subjectId.mat','subjectId')
+save('response.mat','response')
+save('t.mat','t')
+save('subject_age.mat','subject_age')
+
+
+my_coarse_prediction = cell(number_subject,1);
+
+use_multilabel = 0;
+%subject_age = -ones(number_subject,1);
+total_sample_down = 16;
+size_NN = 70;
+parfor i = 1:number_subject
+    disp(num2str(i))
+    
+    if (subject_age(i)==-1)
+       total_sample_down = 1;
+    else
+       total_sample_down = 1;
+    end
+
+    downsampling_score = cell(total_sample_down,1);
+    for sample_idx = 1:total_sample_down
+    use_X = size(X,1);%-dim_X_EOG-dim_Y_EOG;
+    use_Y = size(Y,1);%-dim_X_EMG-dim_Y_EMG;    
+    [old_training_featureX,old_training_featureY,old_training_label,old_training_multilabel] = AGE_cubic_XY(X([1:use_X],:,:),Y([1:use_Y],:,:),coarse_response,subjectId,i,subject_age,size_NN,coarse_response);
+    
+  
+    
+    
+    %%
+    
+    old_distribution = [numel(find(old_training_label==1)) numel(find(old_training_label==2)) numel(find(old_training_label==3))]
+    old_index = 1:length(old_training_label);
+    
+    % new minority features
+    ratio_all = ceil(repmat(old_distribution(3),1,3)./old_distribution(1:3)-1);
+    ratio_all = [min(6^3-1,ratio_all.*[4 4 0])];
+    
+    [new_minorityX, new_minorityY, new_minority_label, new_minority_multilabel] = get_minority_sampleXY1225(old_training_featureX,old_training_featureY,old_training_label,ratio_all,[3 3 3],old_training_label);
+    
+ 
+%%
+   vec_new_minorityX = get_vec_feature(new_minorityX);
+   vec_new_minorityY = get_vec_feature(new_minorityY);
+
+   testing_featureX = X([1:use_X],:,cvp.testStore{i});
+   testing_featureY = Y([1:use_Y],:,cvp.testStore{i});
+   testing_label = coarse_response(cvp.testStore{i});
+
+   
+
+%%
+   vec_tempX = get_vec_feature(old_training_featureX);
+   vec_tempY = get_vec_feature(old_training_featureY);
+   
+   
+   vec_testing_featureX = get_vec_feature(testing_featureX);
+   vec_testing_featureY = get_vec_feature(testing_featureY);
+   
+
+
+%%
+[safe_part] = 1:size(vec_tempX,1);
+X_EEG_part = 1: use_X*9 - (dim_X_EOG+dim_Y_EOG)*9;
+X_nonEEG_part = use_X*9 - (dim_X_EOG+dim_Y_EOG)*9+1:use_X*9;
+
+Y_EEG_part = 1: use_Y*9 - (dim_X_EMG+dim_Y_EMG)*9;
+
+[trainZ,testZ,new_minorityZ] = unnormalized_ccaFuse(vec_tempX(:,X_EEG_part), vec_tempY, vec_testing_featureX(:,X_EEG_part), vec_testing_featureY, vec_new_minorityX(:,X_EEG_part), vec_new_minorityY, 'concat', safe_part);
+% EOG
+X_EOG_part = use_X*9 - (dim_X_EOG+dim_Y_EOG)*9+1:use_X*9 - dim_X_EOG*9;
+Y_EOG_part = use_X*9 - (dim_X_EOG)*9+1:use_X*9;
+
+[trainZ_EOG,testZ_EOG,new_minorityZ_EOG] = unnormalized_ccaFuse(vec_tempX(:,X_EOG_part), vec_tempX(:,Y_EOG_part), vec_testing_featureX(:,X_EOG_part), vec_testing_featureX(:,Y_EOG_part), vec_new_minorityX(:,X_EOG_part), vec_new_minorityX(:,Y_EOG_part), 'concat', safe_part);
+
+X_EMG_part = use_Y*9- (dim_X_EMG+dim_Y_EMG)*9+1:use_Y*9 - dim_Y_EMG*9;
+Y_EMG_part = use_Y*9 - dim_Y_EMG*9+1: use_Y*9;
+[trainZ_EMG,testZ_EMG,new_minorityZ_EMG] = unnormalized_ccaFuse(vec_tempY(:,X_EMG_part), vec_tempY(:,Y_EMG_part), vec_testing_featureY(:,X_EMG_part), vec_testing_featureY(:,Y_EMG_part), vec_new_minorityY(:,X_EMG_part), vec_new_minorityY(:,Y_EMG_part), 'concat', safe_part);
+
+[trainZ, trainZ_EOG, trainZ_EMG, testZ, testZ_EOG, testZ_EMG, new_minorityZ, new_minorityZ_EOG, new_minorityZ_EMG] = ...
+    mycenter(trainZ, trainZ_EOG, trainZ_EMG, testZ, testZ_EOG, testZ_EMG, new_minorityZ, new_minorityZ_EOG, new_minorityZ_EMG);
+
+ trainingCOM = [trainZ trainZ_EOG trainZ_EMG];%(:,1:50);
+ testingCOM = [testZ testZ_EOG testZ_EMG];%(:,1:50);
+ new_minorityZ = [new_minorityZ new_minorityZ_EOG new_minorityZ_EMG];
+
+trainZ_EOG = [];
+testZ_EOG = [];
+new_minorityZ_EOG = [];
+trainZ = [];
+testZ =[];
+vec_new_minorityX = [];
+vec_new_minorityY = [];
+
+
+
+
+
+%% balancing Awake REM N1 N3
+template = templateSVM('KernelFunction', 'gaussian', ...
+    'PolynomialOrder', [], 'KernelScale', 10, ...
+    'BoxConstraint', 1, 'Standardize', true);
+
+
+gap = repmat(max(old_distribution),1,3)- old_distribution;  
+temp_new_minorityZ = cell(3,1);
+temp_new_minority_label = cell(3,1);   
+temp_new_minority_multilabel = cell(3,1); 
+for balancing_class = [1 2]
+   
+pseudo_old_training_label = ones(length(old_training_label),1);
+pseudo_old_training_label(find(old_training_label==balancing_class)) = 2;
+
+pseudo_new_minority_label = ones(length(new_minority_label),1);
+pseudo_new_minority_label(find(new_minority_label==balancing_class)) = 2;
+
+Mdl = fitcecoc(trainingCOM, pseudo_old_training_label, ...
+        'Learners', template, ...
+        'Coding', 'onevsall', ...
+        'ClassNames', [1;2]);
+    
+[~, validationScores] = predict(Mdl, new_minorityZ);
+
+[score_total,order_total] = sort(validationScores,2,'descend'); 
+A = order_total(:,1);
+
+
+coincide_partA = find(A==pseudo_new_minority_label);
+
+
+coincide_partA_N3 = intersect(coincide_partA,find(A==2));
+QQQ = numel(coincide_partA_N3)
+
+
+
+
+
+
+if (balancing_class~=333)
+QQQQ = randperm(QQQ);
+coincide_part = coincide_partA_N3(QQQQ(1:min(gap(balancing_class),QQQ)));
+%agree_ratio = length(coincide_part)/length(new_minority_label)
+if (unique(new_minority_label(coincide_part))~=balancing_class)
+    error('error')
+end
+
+temp_new_minorityZ{balancing_class} = new_minorityZ(coincide_part,:);
+temp_new_minority_label{balancing_class} = new_minority_label(coincide_part);
+temp_new_minority_multilabel{balancing_class} = new_minority_multilabel(coincide_part);
+
+elseif (balancing_class==333)
+N1_location = find(new_minority_label==balancing_class);    
+score_diff = score_total(N1_location,2)-score_total(N1_location,1);
+[~,order_diff] = sort(score_diff',2,'descend'); 
+selected_part = N1_location(order_diff(1:gap(balancing_class)));   
+
+if (unique(new_minority_label(selected_part))~=balancing_class)
+    error('error')
+end
+
+temp_new_minorityZ{balancing_class} = new_minorityZ(selected_part,:);
+temp_new_minority_label{balancing_class} = new_minority_label(selected_part);
+temp_new_minority_multilabel{balancing_class} = new_minority_multilabel(selected_part);
+end
+
+end
+
+%%  
+for balancing_class = [1 2]
+   trainingCOM = [trainingCOM; temp_new_minorityZ{balancing_class}];
+   old_training_label = [old_training_label; temp_new_minority_label{balancing_class}];
+   old_training_multilabel = [old_training_multilabel; temp_new_minority_multilabel{balancing_class}];
+end
+ 
+old_training_feature = trainingCOM;
+testing_feature = testingCOM;
+
+
+    tempX = []; 
+    tempY = [];
+    trainZ = [];
+    testZ = [];
+
+        Mdl = fitcecoc(old_training_feature, old_training_label, ...
+        'Learners', template, ...
+        'Coding', 'onevsone', ...
+        'ClassNames', [1; 2; 3]);
+    
+    [~, validationScores] = predict(Mdl, testing_feature);
+    downsampling_score{sample_idx} = validationScores;
+
+    end
+    
+   
+    total_downsampling_score = zeros(size(downsampling_score{1}));
+    for sample_idx = 1:total_sample_down
+    [~,A] = max(downsampling_score{sample_idx}, [], 2); 
+    total_downsampling_score =  total_downsampling_score + get_delta_distribution(A,3)';   
+    end
+    
+    
+    [~, cm{i}, ~, ~] = confusion(coarse_t{i}', total_downsampling_score');    
+    my_coarse_prediction{i} = total_downsampling_score;    
+
+    
+    
+    
+    warning(['the accuracy of ',num2str(i),'th subject is ',num2str(sum(diag(cm{i}))/sum(sum(cm{i})))]);
+    
+
+   
+end
+
+save('my_coarse_prediction.mat','my_coarse_prediction')
+save('coarse_cm.mat','cm')
+ACC_subject = zeros(size(cm,1),1);
+for i = 1:size(cm,1)
+    ACC_subject(i) = sum(diag(cm{i}))/sum(sum(cm{i}));
+end
+
+Median_ACC = median(ACC_subject)
+
+ConfMat = zeros(3);
+for i = 1:size(cm,1)
+    ConfMat = ConfMat + cm{i};
+end
+acc = sum(diag(ConfMat)) / sum(ConfMat(:));
+
+disp(['Accuracy = ' num2str(acc)])
+
