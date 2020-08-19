@@ -1,5 +1,4 @@
-# JCSM intra-center assessment
+# intra-center assessment
 These codes were used to build an artificial intelligence (AI) system to classify the sleep stages automatically. 
-The performance of this system was discussed in 
-"Large Scale Assessment of Consistency in Sleep Stage Scoring Rules among Multiple
-Sleep Centers Using an Interpretable Machine Learning Algorithm."
+We applied the scattering transform to extract features from EEG and EOG. 
+Hence, the package ScatNet also needs to be downloaded (https://www.di.ens.fr/data/software/scatnet/).  
