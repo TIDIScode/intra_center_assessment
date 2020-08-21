@@ -272,11 +272,11 @@ for i = 1: size(Channels, 1)
     
     disp(num2str(i))
     [N3_feature] = my_N3_feature_overall(Channels{i, 1});
-    [Channels{i, 1}] = myEMG_energy(Channels{i, 1},Fs,10,'lowEEG');
+    [Channels{i, 1}] = myEEG_energy(Channels{i, 1},Fs,10,'lowEEG');
     Channels{i, 1} = [Channels{i, 1}; N3_feature];
     
     [N3_feature] = my_N3_feature_overall(Channels{i, 2});
-    [Channels{i, 2}] = myEMG_energy(Channels{i, 2},Fs,10,'lowEEG');
+    [Channels{i, 2}] = myEEG_energy(Channels{i, 2},Fs,10,'lowEEG');
     Channels{i, 2} = [Channels{i, 2}; N3_feature];
      
 end
