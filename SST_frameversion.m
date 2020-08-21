@@ -174,7 +174,7 @@ featureC=(featureC)/(numel(max(floor(8/df)+1,1):floor(15/df)-1));
 featureD=sum(average_sst(max(floor(7.5/df)+1,1):floor(12.5/df)-1,:)); 
 featureD=(featureD)/(numel(max(floor(7.5/df)+1,1):floor(12.5/df)-1));
 
-featureE=sum(average_sst(max(floor(12.5/df)+1,1):floor(12.5/df)-1,:)); 
+featureE=sum(average_sst(max(floor(12.5/df)+1,1):floor(15.5/df)-1,:)); 
 featureE=(featureE)/(numel(max(floor(12.5/df)+1,1):floor(15.5/df)-1));
 
 feature = [featureA; featureB;  featureC; featureD; featureE];
